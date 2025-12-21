@@ -8,8 +8,6 @@ type Currency = 'EUR' | 'USD' | 'GBP' | 'CHF';
 interface SettingsContextType {
     currency: Currency;
     setCurrency: (c: Currency) => void;
-    exchangeRate: number; // Legacy: Manual USD to Base
-    setExchangeRate: (rate: number) => void; // Legacy
     currencyRates: Record<string, number> | null;
     refreshRates: () => Promise<void>;
     isPrivacyMode: boolean;
@@ -26,7 +24,6 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export function SettingsProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();
     const [currency, setCurrencyState] = useState<Currency>('EUR');
-    const [exchangeRate, setExchangeRateState] = useState<number>(1);
     const [currencyRates, setCurrencyRates] = useState<Record<string, number> | null>(null);
     const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(false);
     const [finnhubKey, setFinnhubKeyState] = useState<string>('');
@@ -39,7 +36,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (!user) {
             // Fallback to local storage if no user
             setCurrencyState((localStorage.getItem('wc_currency') as Currency) || 'EUR');
-            setExchangeRateState(parseFloat(localStorage.getItem('wc_exchange_rate') || '1'));
             setIsPrivacyMode(localStorage.getItem('wc_privacy_mode') === 'true');
             setFinnhubKeyState(getFinnhubKey() || '');
             return;
@@ -91,10 +87,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const setExchangeRate = (rate: number) => {
-        setExchangeRateState(rate);
-        localStorage.setItem('wc_exchange_rate', rate.toString());
-    };
+
 
     const togglePrivacyMode = async () => {
         const next = !isPrivacyMode;
@@ -116,13 +109,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     const convertCurrency = useCallback((value: number, sourceCurrency?: string): number => {
         if (!sourceCurrency || sourceCurrency === currency) return value;
+
+        // If we have rates, use them.
+        // Rates are base -> targets. E.g. Base EUR. Rates: { USD: 1.08, GBP: 0.85 }
+        // To convert 100 USD to EUR: 100 / 1.08
         if (currencyRates && currencyRates[sourceCurrency]) {
             const rate = currencyRates[sourceCurrency];
             if (rate) return value / rate;
         }
-        if (sourceCurrency === 'USD') return value * exchangeRate;
+
+        // Fallback or "Same" if rate missing (shouldn't happen if loaded, but safety)
         return value;
-    }, [currency, currencyRates, exchangeRate]);
+    }, [currency, currencyRates]);
 
     const formatCurrency = (value: number, sourceCurrency?: string) => {
         const converted = convertCurrency(value, sourceCurrency);
@@ -137,8 +135,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             value={{
                 currency,
                 setCurrency,
-                exchangeRate,
-                setExchangeRate,
                 currencyRates,
                 refreshRates,
                 isPrivacyMode,

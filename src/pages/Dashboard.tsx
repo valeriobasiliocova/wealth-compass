@@ -11,6 +11,7 @@ import { CryptoTable } from '@/components/dashboard/CryptoTable';
 import { LiabilitiesTable } from '@/components/dashboard/LiabilitiesTable';
 import { LiquidityCards } from '@/components/dashboard/LiquidityCards';
 import { IncomeExpenseModule } from '@/components/dashboard/IncomeExpenseModule';
+import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { getCryptoPrice, getStockPrice } from '@/lib/api';
 import { toast } from 'sonner';
 import type { TimeRange } from '@/types/finance';
@@ -88,34 +89,20 @@ const Dashboard = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gradient">Personal Finance</h1>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <p>Track your wealth journey</p>
-              {lastUpdated && (
-                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                  Updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-            </div>
+            <h1 className="text-3xl font-bold text-gradient">Dashboard</h1>
+            <p className="text-muted-foreground">Financial Command Center</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
-              <Settings className="h-5 w-5 text-muted-foreground" />
-            </Button>
             <Button
               variant="outline"
               onClick={handleGlobalRefresh}
               disabled={isRefreshing}
             >
-              {isRefreshing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Refresh Prices
+              {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Refresh
             </Button>
             <Button onClick={() => finance.takeSnapshot(convertCurrency)} className="gradient-primary">
-              <Camera className="h-4 w-4 mr-2" /> Take Snapshot
+              <Camera className="h-4 w-4 mr-2" /> Snapshot
             </Button>
           </div>
         </div>
@@ -126,80 +113,43 @@ const Dashboard = () => {
             title="Net Worth"
             value={totals.netWorth}
             icon={TrendingUp}
-            helpText="Your total financial value. Calculated as: (All Assets + Cash + Crypto) - (All Debts/Liabilities)."
+            helpText="Total Assets - Total Liabilities"
           />
           <StatCard
-            title="Liquidity"
+            title="Cash Balance"
             value={totals.totalLiquidity}
             icon={Wallet}
-            helpText="Cash or investments that can be quickly converted to cash (e.g., Bank Accounts, Savings)."
+            helpText="Liquid Cash (Income - Expenses)"
           />
           <StatCard
             title="Investments"
             value={totals.totalInvestments}
             icon={TrendingUp}
-            helpText="The current total market value of your Stocks, ETFs, and other investment vehicles."
+            helpText="Stocks & ETF Holdings"
           />
           <StatCard
             title="Crypto"
             value={totals.totalCrypto}
             icon={Bitcoin}
-            helpText="The current total market value of your Cryptocurrency holdings."
+            helpText="Cryptocurrency Holdings"
           />
         </div>
 
-        {/* Net Worth Chart */}
-        <NetWorthChart data={chartData} currentRange={timeRange} onRangeChange={setTimeRange} />
-
-        {/* Income & Expenses */}
-        <IncomeExpenseModule
-          income={finance.data.income}
-          expenses={finance.data.expenses}
-          monthlyIncome={cashFlow.monthlyIncome}
-          monthlyExpenses={cashFlow.monthlyExpenses}
-          savingsRate={cashFlow.savingsRate}
-          onAddIncome={finance.addIncome}
-          onDeleteIncome={finance.deleteIncome}
-          onAddExpense={finance.addExpense}
-          onDeleteExpense={finance.deleteExpense}
-        />
-
-        {/* Liquidity */}
-        <LiquidityCards
-          accounts={finance.data.liquidity}
-          onAdd={finance.addLiquidity}
-          onUpdate={finance.updateLiquidity}
-          onDelete={finance.deleteLiquidity}
-        />
-
-        {/* Investment Portfolio */}
+        {/* Charts & Activity Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <InvestmentTable
-              investments={finance.data.investments}
-              onAdd={finance.addInvestment}
-              onUpdate={finance.updateInvestment}
-              onDelete={finance.deleteInvestment}
-            />
+          {/* Main Chart - 2 cols */}
+          <div className="lg:col-span-2 space-y-6">
+            <NetWorthChart data={chartData} currentRange={timeRange} onRangeChange={setTimeRange} />
+            {/* Allocation - 3 Pillars */}
+            <AllocationChart investments={finance.data.investments} groupBy="sector" />
           </div>
-          <AllocationChart investments={finance.data.investments} groupBy="sector" />
+
+          {/* Side Widgets - 1 col */}
+          <div className="space-y-6">
+            <RecentActivity />
+            {/* Quick breakdown of Cash vs Invest vs Crypto could go here too as a Donut */}
+          </div>
         </div>
-
-        {/* Crypto Holdings */}
-        <CryptoTable
-          holdings={finance.data.crypto}
-          onAdd={finance.addCrypto}
-          onUpdate={finance.updateCrypto}
-          onDelete={finance.deleteCrypto}
-        />
-
-        {/* Liabilities */}
-        <LiabilitiesTable
-          liabilities={finance.data.liabilities}
-          onAdd={finance.addLiability}
-          onUpdate={finance.updateLiability}
-          onDelete={finance.deleteLiability}
-        />
       </div>
     </div>
   );

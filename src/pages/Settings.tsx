@@ -16,14 +16,12 @@ export default function SettingsPage() {
     const navigate = useNavigate();
     const {
         currency, setCurrency,
-        exchangeRate, setExchangeRate,
-        isPrivacyMode, togglePrivacyMode,
-        finnhubKey, setFinnhubKey,
-        isFinnhubKeyEnv
+        currencyRates, // Added this
+        isPrivacyMode, togglePrivacyMode
     } = useSettings();
     const { data, clearData } = useFinance();
 
-    const [showKey, setShowKey] = useState(false);
+
     const [deleteConfOpen, setDeleteConfOpen] = useState(false);
 
     // Download Data as CSV
@@ -93,52 +91,36 @@ export default function SettingsPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Exchange Rate (USD to {currency})</Label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={exchangeRate}
-                                    onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
-                                    disabled={currency === 'USD'}
-                                />
-                                <p className="text-xs text-muted-foreground">Used to convert USD assets to your base currency.</p>
+
+                            <div className="p-4 rounded-lg bg-secondary/50 border border-border/50 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">Live Market Rate</span>
+                                    <span className="flex h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Foreign assets are automatically converted to your Base Currency using real-time ECB rates.
+                                </p>
+
+                                <div className="space-y-1 pt-2">
+                                    {currencyRates ? (
+                                        Object.entries(currencyRates).map(([curr, rate]) => (
+                                            <div key={curr} className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">{curr}</span>
+                                                <span className="font-mono">
+                                                    1 {currency} = {rate} {curr}
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-xs text-muted-foreground italic">Loading rates...</div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* API Connections */}
-                <Card className="glass-card">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5 text-primary" /> API Connections</CardTitle>
-                        <CardDescription>Manage external services for real-time data.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Finnhub API Key (Stocks)</Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    type={showKey ? "text" : "password"}
-                                    value={finnhubKey}
-                                    onChange={(e) => setFinnhubKey(e.target.value)}
-                                    placeholder="Enter key..."
-                                    disabled={isFinnhubKeyEnv}
-                                />
-                                <Button variant="outline" size="icon" onClick={() => setShowKey(!showKey)}>
-                                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                {isFinnhubKeyEnv ? (
-                                    <span className="text-green-500 font-medium">✓ Managed via environment variable (.env)</span>
-                                ) : (
-                                    <span>Get a free key at <a href="https://finnhub.io/" target="_blank" rel="noreferrer" className="underline hover:text-primary">finnhub.io</a></span>
-                                )}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+
 
                 {/* Privacy & Interface */}
                 <Card className="glass-card">

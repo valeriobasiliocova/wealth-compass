@@ -11,6 +11,10 @@ import { SettingsProvider } from "./contexts/SettingsContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import LoginPage from "./pages/Login";
+import MainLayout from "./components/layout/MainLayout";
+import CashFlowPage from "./pages/CashFlow";
+import InvestmentsPage from "./pages/Investments";
+import CryptoPage from "./pages/Crypto";
 
 const queryClient = new QueryClient();
 
@@ -22,19 +26,20 @@ const App = () => (
           <FinanceProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/" element={
+                <Route element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <MainLayout />
                   </ProtectedRoute>
-                } />
-                <Route path="/settings" element={
-                  <ProtectedRoute>
-                    <SettingsPage />
-                  </ProtectedRoute>
-                } />
+                }>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/cash-flow" element={<CashFlowPage />} />
+                  <Route path="/investments" element={<InvestmentsPage />} />
+                  <Route path="/crypto" element={<CryptoPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
