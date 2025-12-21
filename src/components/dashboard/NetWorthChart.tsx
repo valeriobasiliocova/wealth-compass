@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TimeRange, ChartDataPoint } from '@/types/finance';
 import { cn } from '@/lib/utils';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface NetWorthChartProps {
   data: ChartDataPoint[];
@@ -14,8 +15,16 @@ interface NetWorthChartProps {
 const ranges: TimeRange[] = ['1M', '6M', '1Y', 'ALL'];
 
 export function NetWorthChart({ data, onRangeChange, currentRange }: NetWorthChartProps) {
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact' }).format(value);
+  const { currency, exchangeRate, isPrivacyMode } = useSettings();
+
+  const formatCurrency = (value: number) => {
+    const converted = value * (currency === 'USD' ? 1 : exchangeRate);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      notation: 'compact'
+    }).format(converted);
+  };
 
   return (
     <Card className="glass-card col-span-full">
@@ -44,30 +53,32 @@ export function NetWorthChart({ data, onRangeChange, currentRange }: NetWorthCha
             No data yet. Add some financial entries and take a snapshot to see your progress.
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={formatCurrency} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: 'var(--radius)',
-                }}
-                labelStyle={{ color: 'hsl(var(--foreground))' }}
-                formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                dot={{ fill: 'hsl(var(--primary))', strokeWidth: 0, r: 4 }}
-                activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className={cn(isPrivacyMode && "privacy-blur")}>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={formatCurrency} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: 'var(--radius)',
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 0, r: 4 }}
+                  activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </CardContent>
     </Card>

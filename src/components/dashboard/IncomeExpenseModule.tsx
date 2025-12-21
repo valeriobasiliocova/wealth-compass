@@ -9,6 +9,8 @@ import { Progress } from '@/components/ui/progress';
 import { Plus, Trash2, DollarSign, PiggyBank } from 'lucide-react';
 import type { IncomeEntry, ExpenseEntry } from '@/types/finance';
 import { format } from 'date-fns';
+import { useSettings } from '@/contexts/SettingsContext';
+import { cn } from '@/lib/utils';
 
 interface IncomeExpenseModuleProps {
   income: IncomeEntry[];
@@ -33,6 +35,7 @@ export function IncomeExpenseModule({
   onAddExpense,
   onDeleteExpense,
 }: IncomeExpenseModuleProps) {
+  const { formatCurrency, isPrivacyMode } = useSettings();
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [incomeForm, setIncomeForm] = useState({
@@ -62,8 +65,7 @@ export function IncomeExpenseModule({
     setExpenseOpen(false);
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  const blurClass = isPrivacyMode ? 'privacy-blur' : '';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -73,7 +75,9 @@ export function IncomeExpenseModule({
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-success" />
             Monthly Income
-            <span className="text-sm font-normal text-success ml-2">{formatCurrency(monthlyIncome)}</span>
+            <span className={cn("text-sm font-normal text-success ml-2", blurClass)}>
+              {formatCurrency(monthlyIncome)}
+            </span>
           </CardTitle>
           <Dialog open={incomeOpen} onOpenChange={setIncomeOpen}>
             <DialogTrigger asChild>
@@ -129,7 +133,7 @@ export function IncomeExpenseModule({
                     <div className="text-xs text-muted-foreground">{i.description}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-success font-medium">{formatCurrency(i.amount)}</span>
+                    <span className={cn("text-success font-medium", blurClass)}>{formatCurrency(i.amount)}</span>
                     <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onDeleteIncome(i.id)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
@@ -147,7 +151,9 @@ export function IncomeExpenseModule({
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <PiggyBank className="h-5 w-5 text-destructive" />
             Monthly Expenses
-            <span className="text-sm font-normal text-destructive ml-2">{formatCurrency(monthlyExpenses)}</span>
+            <span className={cn("text-sm font-normal text-destructive ml-2", blurClass)}>
+              {formatCurrency(monthlyExpenses)}
+            </span>
           </CardTitle>
           <Dialog open={expenseOpen} onOpenChange={setExpenseOpen}>
             <DialogTrigger asChild>
@@ -195,7 +201,7 @@ export function IncomeExpenseModule({
                     <div className="text-xs text-muted-foreground">{e.description}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-destructive font-medium">{formatCurrency(e.amount)}</span>
+                    <span className={cn("text-destructive font-medium", blurClass)}>{formatCurrency(e.amount)}</span>
                     <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onDeleteExpense(e.id)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
@@ -218,7 +224,7 @@ export function IncomeExpenseModule({
             <span className="text-2xl font-bold text-primary">{savingsRate.toFixed(1)}%</span>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            Saving {formatCurrency(monthlyIncome - monthlyExpenses)} out of {formatCurrency(monthlyIncome)} this month
+            Saving <span className={blurClass}>{formatCurrency(monthlyIncome - monthlyExpenses)}</span> out of <span className={blurClass}>{formatCurrency(monthlyIncome)}</span> this month
           </p>
         </CardContent>
       </Card>

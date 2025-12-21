@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Trash2, CreditCard } from 'lucide-react';
 import type { Liability } from '@/types/finance';
+import { useSettings } from '@/contexts/SettingsContext';
+import { cn } from '@/lib/utils';
 
 interface LiabilitiesTableProps {
   liabilities: Liability[];
@@ -17,12 +19,14 @@ interface LiabilitiesTableProps {
 }
 
 export function LiabilitiesTable({ liabilities, onAdd, onUpdate, onDelete }: LiabilitiesTableProps) {
+  const { formatCurrency, convertCurrency, isPrivacyMode, currency: baseCurrency } = useSettings();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     type: 'loan' as Liability['type'],
     name: '',
     principal: 0,
     currentBalance: 0,
+    currency: 'USD',
     interestRate: 0,
     monthlyPayment: 0,
   });
@@ -30,14 +34,12 @@ export function LiabilitiesTable({ liabilities, onAdd, onUpdate, onDelete }: Lia
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAdd(form);
-    setForm({ type: 'loan', name: '', principal: 0, currentBalance: 0, interestRate: 0, monthlyPayment: 0 });
+    setForm({ type: 'loan', name: '', principal: 0, currentBalance: 0, currency: 'USD', interestRate: 0, monthlyPayment: 0 });
     setOpen(false);
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-
-  const totalDebt = liabilities.reduce((sum, l) => sum + l.currentBalance, 0);
+  const totalDebt = liabilities.reduce((sum, l) => sum + convertCurrency(l.currentBalance, l.currency), 0);
+  const blurClass = isPrivacyMode ? 'privacy-blur' : '';
 
   return (
     <Card className="glass-card">
@@ -45,7 +47,7 @@ export function LiabilitiesTable({ liabilities, onAdd, onUpdate, onDelete }: Lia
         <CardTitle className="text-lg font-semibold flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-destructive" />
           Liabilities
-          <span className="text-sm font-normal text-muted-foreground ml-2">
+          <span className={cn("text-sm font-normal text-muted-foreground ml-2", blurClass)}>
             Total: {formatCurrency(totalDebt)}
           </span>
         </CardTitle>
@@ -90,14 +92,27 @@ export function LiabilitiesTable({ liabilities, onAdd, onUpdate, onDelete }: Lia
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Interest Rate (%)</Label>
-                  <Input type="number" step="0.01" value={form.interestRate} onChange={(e) => setForm({ ...form, interestRate: +e.target.value })} />
+                  <Label>Currency</Label>
+                  <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="EUR">EUR (€)</SelectItem>
+                      <SelectItem value="GBP">GBP (£)</SelectItem>
+                      <SelectItem value="CHF">CHF (Fr)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Monthly Payment</Label>
                   <Input type="number" value={form.monthlyPayment} onChange={(e) => setForm({ ...form, monthlyPayment: +e.target.value })} />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>Interest Rate (%)</Label>
+                <Input type="number" step="0.01" value={form.interestRate} onChange={(e) => setForm({ ...form, interestRate: +e.target.value })} />
+              </div>
+
               <Button type="submit" className="w-full gradient-primary">Add Liability</Button>
             </form>
           </DialogContent>
@@ -124,10 +139,19 @@ export function LiabilitiesTable({ liabilities, onAdd, onUpdate, onDelete }: Lia
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.name}</TableCell>
                   <TableCell className="capitalize">{l.type.replace('_', ' ')}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(l.principal)}</TableCell>
-                  <TableCell className="text-right text-destructive">{formatCurrency(l.currentBalance)}</TableCell>
+                  <TableCell className={cn("text-right", blurClass)}>{formatCurrency(l.principal, l.currency)}</TableCell>
+                  <TableCell className={cn("text-right text-destructive", blurClass)}>
+                    <div className="flex flex-col items-end">
+                      <span>{formatCurrency(l.currentBalance, l.currency)}</span>
+                      {l.currency && l.currency !== baseCurrency && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: l.currency }).format(l.currentBalance)}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">{l.interestRate}%</TableCell>
-                  <TableCell className="text-right">{formatCurrency(l.monthlyPayment)}</TableCell>
+                  <TableCell className={cn("text-right", blurClass)}>{formatCurrency(l.monthlyPayment, l.currency)}</TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" onClick={() => onDelete(l.id)}>
                       <Trash2 className="h-4 w-4 text-destructive" />

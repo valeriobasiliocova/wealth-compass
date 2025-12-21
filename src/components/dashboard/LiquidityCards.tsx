@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Trash2, Wallet } from 'lucide-react';
 import type { LiquidityAccount } from '@/types/finance';
+import { useSettings } from '@/contexts/SettingsContext';
+import { cn } from '@/lib/utils';
 
 interface LiquidityCardsProps {
   accounts: LiquidityAccount[];
@@ -16,24 +18,24 @@ interface LiquidityCardsProps {
 }
 
 export function LiquidityCards({ accounts, onAdd, onUpdate, onDelete }: LiquidityCardsProps) {
+  const { formatCurrency, convertCurrency, isPrivacyMode, currency: baseCurrency } = useSettings();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     type: 'checking' as LiquidityAccount['type'],
     name: '',
     balance: 0,
+    currency: 'USD',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAdd(form);
-    setForm({ type: 'checking', name: '', balance: 0 });
+    setForm({ type: 'checking', name: '', balance: 0, currency: 'USD' });
     setOpen(false);
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-
-  const totalLiquidity = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const totalLiquidity = accounts.reduce((sum, a) => sum + convertCurrency(a.balance, a.currency), 0);
+  const blurClass = isPrivacyMode ? 'privacy-blur' : '';
 
   return (
     <Card className="glass-card">
@@ -41,7 +43,7 @@ export function LiquidityCards({ accounts, onAdd, onUpdate, onDelete }: Liquidit
         <CardTitle className="text-lg font-semibold flex items-center gap-2">
           <Wallet className="h-5 w-5 text-accent" />
           Cash & Liquidity
-          <span className="text-sm font-normal text-muted-foreground ml-2">
+          <span className={cn("text-sm font-normal text-muted-foreground ml-2", blurClass)}>
             Total: {formatCurrency(totalLiquidity)}
           </span>
         </CardTitle>
@@ -56,17 +58,31 @@ export function LiquidityCards({ accounts, onAdd, onUpdate, onDelete }: Liquidit
               <DialogTitle>Add Cash Account</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as LiquidityAccount['type'] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="checking">Checking</SelectItem>
-                    <SelectItem value="savings">Savings</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="money_market">Money Market</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Type</Label>
+                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as LiquidityAccount['type'] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="checking">Checking</SelectItem>
+                      <SelectItem value="savings">Savings</SelectItem>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="money_market">Money Market</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="EUR">EUR (€)</SelectItem>
+                      <SelectItem value="GBP">GBP (£)</SelectItem>
+                      <SelectItem value="CHF">CHF (Fr)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Name</Label>
@@ -98,7 +114,14 @@ export function LiquidityCards({ accounts, onAdd, onUpdate, onDelete }: Liquidit
                 </Button>
                 <div className="text-sm text-muted-foreground capitalize">{a.type.replace('_', ' ')}</div>
                 <div className="font-medium">{a.name}</div>
-                <div className="text-xl font-bold text-primary mt-1">{formatCurrency(a.balance)}</div>
+                <div className={cn("text-xl font-bold text-primary mt-1", blurClass)}>
+                  {formatCurrency(a.balance, a.currency)}
+                </div>
+                {a.currency && a.currency !== baseCurrency && (
+                  <div className={cn("text-xs text-muted-foreground", blurClass)}>
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: a.currency }).format(a.balance)}
+                  </div>
+                )}
               </div>
             ))}
           </div>

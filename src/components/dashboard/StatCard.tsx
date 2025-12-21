@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSettings } from '@/contexts/SettingsContext';
+import { HelpTooltip } from '@/components/ui/tooltip-helper';
 
 interface StatCardProps {
   title: string;
@@ -9,25 +11,35 @@ interface StatCardProps {
   trend?: number;
   format?: 'currency' | 'percent';
   className?: string;
+  helpText?: string;
 }
 
-export function StatCard({ title, value, icon: Icon, trend, format = 'currency', className }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, trend, format = 'currency', className, helpText }: StatCardProps) {
+  const { formatCurrency, isPrivacyMode } = useSettings();
+
   const formattedValue =
     format === 'currency'
-      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
+      ? formatCurrency(value)
       : `${value.toFixed(1)}%`;
 
   const TrendIcon = trend && trend > 0 ? TrendingUp : trend && trend < 0 ? TrendingDown : Minus;
   const trendColor = trend && trend > 0 ? 'text-success' : trend && trend < 0 ? 'text-destructive' : 'text-muted-foreground';
 
+  const shouldBlur = format === 'currency' && isPrivacyMode;
+
   return (
     <Card className={cn('glass-card', className)}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          {title}
+          {helpText && <HelpTooltip content={helpText} />}
+        </CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold tracking-tight">{formattedValue}</div>
+        <div className={cn("text-2xl font-bold tracking-tight", shouldBlur && "privacy-blur")}>
+          {formattedValue}
+        </div>
         {trend !== undefined && (
           <div className={cn('flex items-center gap-1 text-xs mt-1', trendColor)}>
             <TrendIcon className="h-3 w-3" />

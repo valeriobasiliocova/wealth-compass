@@ -26,6 +26,7 @@ export interface Investment {
   quantity: number;
   costBasis: number; // Total cost
   currentValue: number;
+  currency?: string; // Original currency, defaults to USD
   geography: string;
   sector: string;
   updatedAt: string;
@@ -39,6 +40,7 @@ export interface CryptoHolding {
   quantity: number;
   avgBuyPrice: number;
   currentPrice: number;
+  currency?: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -49,6 +51,7 @@ export interface Liability {
   name: string;
   principal: number;
   currentBalance: number;
+  currency?: string;
   interestRate: number;
   monthlyPayment: number;
   createdAt: string;
@@ -60,6 +63,7 @@ export interface LiquidityAccount {
   type: 'checking' | 'savings' | 'cash' | 'money_market';
   name: string;
   balance: number;
+  currency?: string;
   updatedAt: string;
   createdAt: string;
 }

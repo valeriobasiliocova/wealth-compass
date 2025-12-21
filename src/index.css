@@ -133,4 +133,9 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+  
+  .privacy-blur {
+    filter: blur(6px);
+    transition: filter 0.2s ease;
+  }
 }
