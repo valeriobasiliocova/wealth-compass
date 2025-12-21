@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HelpTooltip } from '@/components/ui/tooltip-helper';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
@@ -19,7 +20,7 @@ const COLORS = [
 ];
 
 export function AllocationChart({ investments, groupBy }: AllocationChartProps) {
-  const { currency, exchangeRate, isPrivacyMode } = useSettings();
+  const { formatCurrency, isPrivacyMode } = useSettings();
 
   const grouped = investments.reduce((acc, inv) => {
     const key = inv[groupBy];
@@ -29,14 +30,7 @@ export function AllocationChart({ investments, groupBy }: AllocationChartProps) 
 
   const data = Object.entries(grouped).map(([name, value]) => ({ name, value }));
 
-  const formatCurrency = (value: number) => {
-    const converted = value * (currency === 'USD' ? 1 : exchangeRate);
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      notation: 'compact'
-    }).format(converted);
-  };
+
 
   return (
     <Card className="glass-card">
@@ -69,12 +63,9 @@ export function AllocationChart({ investments, groupBy }: AllocationChartProps) 
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 'var(--radius)',
-                  }}
-                  formatter={(value: number) => [formatCurrency(value), 'Value']}
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ backgroundColor: "#1A1F2C", borderColor: "#403E43", color: "#FFFFFF" }}
+                  itemStyle={{ color: "#FFFFFF" }}
                 />
                 <Legend
                   formatter={(value) => <span className="text-foreground text-sm">{value}</span>}

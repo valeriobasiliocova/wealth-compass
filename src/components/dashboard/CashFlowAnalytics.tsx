@@ -93,9 +93,10 @@ export function CashFlowAnalytics() {
                                     <XAxis dataKey="displayDate" fontSize={12} tickLine={false} axisLine={false} minTickGap={30} />
                                     <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `€${val}`} />
                                     <Tooltip
-                                        contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
                                         formatter={(value: number) => formatCurrency(value)}
-                                        labelFormatter={(label) => label}
+                                        labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                                        contentStyle={{ backgroundColor: "#1A1F2C", borderColor: "#403E43", color: "#FFFFFF" }}
+                                        itemStyle={{ color: "#FFFFFF" }}
                                     />
                                     <Area type="monotone" dataKey="amount" stroke="#EF4444" fillOpacity={1} fill="url(#colorSplit)" />
                                 </AreaChart>

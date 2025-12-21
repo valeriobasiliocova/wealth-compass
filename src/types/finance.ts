@@ -20,7 +20,7 @@ export interface ExpenseEntry {
 
 export interface Investment {
   id: string;
-  type: 'stock' | 'etf' | 'bond';
+  type: 'stock' | 'etf' | 'bond' | 'real_estate' | 'commodity' | 'other';
   symbol: string;
   name: string;
   quantity: number;
@@ -29,6 +29,8 @@ export interface Investment {
   currency?: string; // Original currency, defaults to USD
   geography: string;
   sector: string;
+  isin?: string;
+  fees?: number;
   updatedAt: string;
   createdAt: string;
 }
@@ -41,6 +43,7 @@ export interface CryptoHolding {
   avgBuyPrice: number;
   currentPrice: number;
   currency?: string;
+  fees?: number;
   updatedAt: string;
   createdAt: string;
 }

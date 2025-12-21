@@ -85,8 +85,10 @@ export function AssetAllocationChart() {
                                 ))}
                             </Pie>
                             <Tooltip
-                                contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
                                 formatter={(value: number) => formatCurrency(value)}
+                                labelFormatter={(label) => label}
+                                contentStyle={{ backgroundColor: "#1A1F2C", borderColor: "#403E43", color: "#FFFFFF" }}
+                                itemStyle={{ color: "#FFFFFF" }}
                             />
                             <Legend verticalAlign="bottom" height={36} />
                         </PieChart>

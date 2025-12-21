@@ -163,98 +163,99 @@ export default function CashFlowPage() {
                         </DialogContent>
                     </Dialog>
                 </div>
+            </div>
 
-                {/* Analytics Section */}
-                <CashFlowAnalytics />
+            {/* Analytics Section */}
+            <CashFlowAnalytics />
 
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="glass-card">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Income</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-500 flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5" />
-                                {formatCurrency(cashFlow.monthlyIncome)}
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="glass-card">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Expenses</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-500 flex items-center gap-2">
-                                <TrendingDown className="h-5 w-5" />
-                                {formatCurrency(cashFlow.monthlyExpenses)}
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="glass-card">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Net Savings</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className={cn("text-2xl font-bold flex items-center gap-2", cashFlow.monthlyIncome - cashFlow.monthlyExpenses >= 0 ? "text-primary" : "text-destructive")}>
-                                <Wallet className="h-5 w-5" />
-                                {formatCurrency(cashFlow.monthlyIncome - cashFlow.monthlyExpenses)}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Savings Rate: {cashFlow.savingsRate.toFixed(1)}%
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Transactions Table */}
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="glass-card">
-                    <CardHeader>
-                        <CardTitle>Recent Transactions</CardTitle>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Income</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.transactions.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                                            No transactions found. Add one to get started.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    data.transactions.map((t) => (
-                                        <TableRow key={t.id}>
-                                            <TableCell>{format(new Date(t.date), 'MMM dd, yyyy')}</TableCell>
-                                            <TableCell>
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary">
-                                                    {t.category}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>{t.description || '-'}</TableCell>
-                                            <TableCell className={cn("text-right font-medium", t.type === 'income' ? 'text-green-500' : 'text-red-500')}>
-                                                {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button variant="ghost" size="icon" onClick={() => deleteTransaction(t.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
+                        <div className="text-2xl font-bold text-green-500 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5" />
+                            {formatCurrency(cashFlow.monthlyIncome)}
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="glass-card">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Expenses</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-red-500 flex items-center gap-2">
+                            <TrendingDown className="h-5 w-5" />
+                            {formatCurrency(cashFlow.monthlyExpenses)}
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="glass-card">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Net Savings</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className={cn("text-2xl font-bold flex items-center gap-2", cashFlow.monthlyIncome - cashFlow.monthlyExpenses >= 0 ? "text-primary" : "text-destructive")}>
+                            <Wallet className="h-5 w-5" />
+                            {formatCurrency(cashFlow.monthlyIncome - cashFlow.monthlyExpenses)}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Savings Rate: {cashFlow.savingsRate.toFixed(1)}%
+                        </p>
                     </CardContent>
                 </Card>
             </div>
-            );
+
+            {/* Transactions Table */}
+            <Card className="glass-card">
+                <CardHeader>
+                    <CardTitle>Recent Transactions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Category</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {data.transactions.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                        No transactions found. Add one to get started.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                data.transactions.map((t) => (
+                                    <TableRow key={t.id}>
+                                        <TableCell>{format(new Date(t.date), 'MMM dd, yyyy')}</TableCell>
+                                        <TableCell>
+                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary">
+                                                {t.category}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>{t.description || '-'}</TableCell>
+                                        <TableCell className={cn("text-right font-medium", t.type === 'income' ? 'text-green-500' : 'text-red-500')}>
+                                            {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" onClick={() => deleteTransaction(t.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+    );
 }

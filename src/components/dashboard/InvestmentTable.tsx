@@ -6,14 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, TrendingUp, Trash2, RefreshCw, Loader2 } from 'lucide-react';
+import { Plus, TrendingUp, Trash2, RefreshCw, Loader2, Pencil } from 'lucide-react';
 import type { Investment } from '@/types/finance';
 import { cn } from '@/lib/utils';
-import { getStockPrice } from '@/lib/api';
+import { getStockPrice, searchByIsin } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useSettings } from '@/contexts/SettingsContext';
 import { HelpTooltip } from '@/components/ui/tooltip-helper';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DialogDescription } from '@/components/ui/dialog';
 
 interface InvestmentTableProps {
   investments: Investment[];
@@ -27,69 +29,154 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
   const [open, setOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [manualPriceEnabled, setManualPriceEnabled] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     symbol: '',
     name: '',
-    type: 'stock' as const,
+    isin: '',
+    type: 'stock' as Investment['type'],
     sector: 'Technology',
     quantity: 0,
-    avgBuyPrice: 0, // Changed from costBasis
+    avgBuyPrice: 0,
+    currentPrice: 0, // Manual Override
     currency: 'USD',
     geography: 'US',
+    feeType: 'fixed' as 'fixed' | 'percent',
+    feeValue: 0
   });
+
+  const resetForm = () => {
+    setForm({
+      symbol: '',
+      name: '',
+      isin: '',
+      type: 'stock',
+      sector: 'Technology',
+      quantity: 0,
+      avgBuyPrice: 0,
+      currentPrice: 0,
+      currency: 'USD',
+      geography: 'US',
+      feeType: 'fixed',
+      feeValue: 0
+    });
+    setManualPriceEnabled(false);
+    setEditId(null);
+  };
+
+  const handleEdit = (inv: Investment) => {
+    setForm({
+      symbol: inv.symbol,
+      name: inv.name,
+      isin: inv.isin || '',
+      type: inv.type,
+      sector: inv.sector,
+      quantity: inv.quantity,
+      avgBuyPrice: inv.quantity > 0 ? (inv.costBasis - (inv.fees || 0)) / inv.quantity : 0, // derived raw price
+      currentPrice: 0, // Reset manual override or maybe derive?
+      currency: inv.currency || 'USD',
+      geography: inv.geography,
+      feeType: 'fixed',
+      feeValue: inv.fees || 0
+    });
+    setEditId(inv.id);
+    setOpen(true);
+  };
+
+  const handleIsinSearch = async () => {
+    if (!form.isin || form.isin.length < 10) return;
+    const result = await searchByIsin(form.isin);
+    if (result) {
+      setForm(prev => ({
+        ...prev,
+        symbol: result.symbol || prev.symbol,
+        name: result.name || prev.name,
+        isin: result.isin || prev.isin // Normalize
+      }));
+      toast.success("Found asset via ISIN");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAdding(true);
     try {
-      let value = 0; // Calculated automatically
-      if (form.type === 'stock' || form.type === 'etf') {
-        const price = await getStockPrice(form.symbol);
-        if (price) {
-          value = price * form.quantity;
-          if (form.currency !== 'USD') {
-            toast.warning('Auto-fetched price is in USD. Please verify currency.');
-          }
+      let value = 0;
+
+      // Determine per-share price for valuation
+      let pricePerShare = 0;
+
+      if (manualPriceEnabled && form.currentPrice > 0) {
+        pricePerShare = form.currentPrice;
+      } else if (form.type === 'stock' || form.type === 'etf') {
+        const fetched = await getStockPrice(form.symbol);
+        if (fetched) {
+          pricePerShare = fetched;
+          if (form.currency !== 'USD') toast.message('Price fetched in USD. Verify currency.');
         } else {
-          // Fallback if price fetch fails? Use cost basis?
-          // User said "Current Value is a calculated result...".
-          // If live price fails, arguably currentValue could assume avgBuyPrice * quantity
-          // OR simply 0 asking for update. Original code used 0. Let's stick to 0 or maybe costBasis?
-          // Let's use costBasis (initial investment) as a better fallback than 0.
-          value = form.quantity * form.avgBuyPrice;
-          toast.warning('Could not fetch live price. Using initial investment value.');
+          toast.warning('Live price unavailable. Enabling manual entry.');
+          setManualPriceEnabled(true);
+          setIsAdding(false);
+          return; // Stop and let user enter price
         }
       } else {
-        // For other types, maybe fallback to cost basis?
-        value = form.quantity * form.avgBuyPrice;
+        // Other assets, fallback to cost basis or manual
+        pricePerShare = form.currentPrice > 0 ? form.currentPrice : form.avgBuyPrice;
       }
 
-      onAdd({
-        symbol: form.symbol,
-        name: form.name,
-        type: form.type,
-        sector: form.sector,
-        quantity: form.quantity,
-        costBasis: form.quantity * form.avgBuyPrice, // Calculated total cost
-        currentValue: value,
-        currency: form.currency,
-        geography: form.geography
-      });
+      value = form.quantity * pricePerShare;
 
-      setForm({
-        symbol: '',
-        name: '',
-        type: 'stock',
-        sector: 'Technology',
-        quantity: 0,
-        avgBuyPrice: 0,
-        currency: 'USD',
-        geography: 'US',
-      });
+      // Calculate Fees
+      let calculatedFees = 0;
+      if (form.feeType === 'fixed') {
+        calculatedFees = form.feeValue;
+      } else {
+        // Percentage of total transaction value (qty * price)
+        calculatedFees = (form.quantity * form.avgBuyPrice) * (form.feeValue / 100);
+      }
+
+      // True Cost Basis = (Qty * AvgPrice) + Fees
+      const trueCostBasis = (form.quantity * form.avgBuyPrice) + calculatedFees;
+
+      if (editId) {
+        onUpdate(editId, {
+          symbol: form.symbol,
+          name: form.name,
+          type: form.type,
+          sector: form.sector,
+          quantity: form.quantity,
+          costBasis: trueCostBasis,
+          currentValue: value,
+          currency: form.currency,
+          geography: form.geography,
+          isin: form.isin,
+          fees: calculatedFees,
+          updatedAt: new Date().toISOString()
+        });
+        toast.success('Investment updated');
+      } else {
+        onAdd({
+          symbol: form.symbol,
+          name: form.name,
+          type: form.type,
+          sector: form.sector,
+          quantity: form.quantity,
+          costBasis: trueCostBasis,
+          currentValue: value,
+          currency: form.currency,
+          geography: form.geography,
+          isin: form.isin,
+          fees: calculatedFees
+        });
+        toast.success('Investment added');
+      }
+
+      resetForm();
       setOpen(false);
-      toast.success('Investment added');
     } catch (error) {
-      toast.error('Failed to add investment');
+      toast.error(editId ? 'Failed to update investment' : 'Failed to add investment');
     } finally {
       setIsAdding(false);
     }
@@ -145,8 +232,28 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Add Investment</DialogTitle>
+                <DialogDescription>Fill in the details below to track your asset.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* ISIN / ID (Smart Search) */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    ISIN / ID
+                    <HelpTooltip content="The unique 12-character code (e.g., IE00BK5BQT80). Paste here to auto-fill details." />
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.isin}
+                      onChange={(e) => setForm({ ...form, isin: e.target.value })}
+                      onBlur={handleIsinSearch}
+                      placeholder="IE00BK5BQT80"
+                    />
+                    <Button type="button" variant="ghost" size="icon" onClick={handleIsinSearch} title="Search by ISIN">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Symbol & Name */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -215,6 +322,49 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                   </div>
                 </div>
 
+                {/* Trading Fees */}
+                <div className="space-y-2 border p-3 rounded-md bg-muted/20">
+                  <Label>Trading Fees</Label>
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      type="button"
+                      variant={form.feeType === 'fixed' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setForm({ ...form, feeType: 'fixed' })}
+                      className="flex-1"
+                    >
+                      Fixed Amount
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={form.feeType === 'percent' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setForm({ ...form, feeType: 'percent' })}
+                      className="flex-1"
+                    >
+                      Percentage %
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">{form.feeType === 'fixed' ? 'Amount' : 'Percentage'}</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={form.feeValue}
+                        onChange={(e) => setForm({ ...form, feeValue: +e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <Label className="text-xs text-muted-foreground">Calculated Fee</Label>
+                      <div className="font-mono font-medium text-lg">
+                        {formatCurrency(form.feeType === 'fixed' ? form.feeValue : (form.quantity * form.avgBuyPrice) * (form.feeValue / 100), form.currency)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Quantity & Avg Buy Price */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -239,6 +389,27 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                   </div>
                 </div>
 
+                {/* Manual Price Override */}
+                <div className="space-y-2 border p-3 rounded-md bg-muted/20">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="manualPrice"
+                      checked={manualPriceEnabled}
+                      onCheckedChange={(c: any) => setManualPriceEnabled(c)}
+                    />
+                    <Label htmlFor="manualPrice">Manually Enter Current Price</Label>
+                  </div>
+                  {manualPriceEnabled && (
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Current Market Price per Share"
+                      value={form.currentPrice}
+                      onChange={(e) => setForm({ ...form, currentPrice: +e.target.value })}
+                    />
+                  )}
+                </div>
+
                 {/* Live Preview Summary */}
                 <div className="p-4 bg-muted/50 rounded-lg border space-y-2">
                   <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">Summary</h4>
@@ -249,13 +420,13 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Calculated as Quantity ({form.quantity}) × Avg Price ({form.avgBuyPrice}). This will be saved as your Cost Basis.
+                    Calculated as (Quantity × Avg Price) + Fees. This will be saved as your True Cost Basis.
                   </p>
                 </div>
 
                 <Button type="submit" className="w-full gradient-primary" disabled={isAdding}>
                   {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Add Investment
+                  {editId ? 'Save Changes' : 'Add Investment'}
                 </Button>
               </form>
             </DialogContent>
@@ -285,7 +456,12 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
               {investments.map((inv) => (
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono font-medium">{inv.symbol}</TableCell>
-                  <TableCell>{inv.name}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span>{inv.name}</span>
+                      {inv.isin && <span className="text-[10px] text-muted-foreground">{inv.isin}</span>}
+                    </div>
+                  </TableCell>
                   <TableCell className="capitalize">{inv.type.replace('_', ' ')}</TableCell>
                   <TableCell>{inv.sector}</TableCell>
                   <TableCell className="text-right">{inv.quantity.toLocaleString()}</TableCell>
@@ -311,9 +487,14 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete(inv.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)}>
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => onDelete(inv.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

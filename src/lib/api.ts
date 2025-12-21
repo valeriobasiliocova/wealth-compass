@@ -72,10 +72,37 @@ export async function getCryptoPrice(idOrSymbol: string): Promise<number | null>
 
 // --- Finnhub (Stocks/ETFs) ---
 
+// Search for asset by ISIN or Name via Yahoo Finance
+export async function searchByIsin(query: string): Promise<{ symbol: string, name: string, isin?: string } | null> {
+    try {
+        const proxyUrl = 'https://corsproxy.io/?';
+        // Yahoo Finance Autocomplete API
+        const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${query}&quotesCount=1&newsCount=0`;
+
+        const res = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+        if (!res.ok) throw new Error('Yahoo Search failed');
+
+        const data = await res.json();
+        const quote = data.quotes?.[0]; // Best match
+
+        if (quote) {
+            return {
+                symbol: quote.symbol,
+                name: quote.longname || quote.shortname,
+                isin: quote.isin // Sometimes available in metadata, if not we rely on user input
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error(`Error searching for ${query}:`, error);
+        return null;
+    }
+}
+
 export async function getStockPrice(symbol: string): Promise<number | null> {
     const apiKey = getFinnhubKey();
 
-    // Method 1: Finnhub (if key exists)
+    // Method 1: Finnhub (if key exists) - basic symbols only
     if (apiKey) {
         try {
             const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
@@ -84,30 +111,37 @@ export async function getStockPrice(symbol: string): Promise<number | null> {
                 throw new Error('Finnhub fetch failed');
             }
             const data = await res.json();
-            // 'c' is the current price
             if (data.c > 0) return data.c;
         } catch (error) {
-            console.warn(`Finnhub failed for ${symbol}, falling back to proxy...`, error);
+            // console.warn(`Finnhub failed for ${symbol}, falling back to proxy...`);
         }
     }
 
-    // Method 2: Yahoo Finance Proxy (Fallback)
-    try {
-        const proxyUrl = 'https://corsproxy.io/?';
-        const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+    // Method 2: Yahoo Finance Proxy (Fallback with Suffix Logic)
+    const proxyUrl = 'https://corsproxy.io/?';
+    const suffixes = ['', '.DE', '.MI', '.L', '.PA', '.AS']; // Common EU exchanges
 
+    // Helper to fetch single
+    const fetchYahoo = async (sym: string) => {
+        const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}`;
         const res = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-        if (!res.ok) throw new Error('Yahoo Finance fetch failed');
-
+        if (!res.ok) throw new Error('Fetch failed');
         const data = await res.json();
-        const result = data?.chart?.result?.[0];
+        return data?.chart?.result?.[0]?.meta?.regularMarketPrice || null;
+    };
 
-        // Check for regular market price
-        return result?.meta?.regularMarketPrice || null;
-    } catch (error) {
-        console.error(`Error fetching stock price for ${symbol}:`, error);
-        return null;
+    for (const suffix of suffixes) {
+        try {
+            const trySymbol = symbol.toUpperCase().endsWith(suffix) ? symbol : symbol + suffix;
+            const price = await fetchYahoo(trySymbol);
+            if (price) return price;
+        } catch (e) {
+            // Continue to next suffix
+        }
     }
+
+    console.error(`Failed to fetch price for ${symbol} after retries.`);
+    return null;
 }
 
 // --- Frankfurter (Currency) ---

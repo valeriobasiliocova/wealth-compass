@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { format } from 'date-fns';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import type { TimeRange, ChartDataPoint } from '@/types/finance';
 import { cn } from '@/lib/utils';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -15,16 +16,7 @@ interface NetWorthChartProps {
 const ranges: TimeRange[] = ['1M', '6M', '1Y', 'ALL'];
 
 export function NetWorthChart({ data, onRangeChange, currentRange }: NetWorthChartProps) {
-  const { currency, exchangeRate, isPrivacyMode } = useSettings();
-
-  const formatCurrency = (value: number) => {
-    const converted = value * (currency === 'USD' ? 1 : exchangeRate);
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      notation: 'compact'
-    }).format(converted);
-  };
+  const { formatCurrency, isPrivacyMode } = useSettings();
 
   return (
     <Card className="glass-card col-span-full">
@@ -60,13 +52,10 @@ export function NetWorthChart({ data, onRangeChange, currentRange }: NetWorthCha
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={formatCurrency} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 'var(--radius)',
-                  }}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  labelFormatter={(date) => format(new Date(date), 'MMM d, yyyy')}
                   formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
+                  contentStyle={{ backgroundColor: "#1A1F2C", borderColor: "#403E43", color: "#FFFFFF" }}
+                  itemStyle={{ color: "#FFFFFF" }}
                 />
                 <Line
                   type="monotone"

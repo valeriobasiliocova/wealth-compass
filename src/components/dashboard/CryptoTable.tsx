@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, Bitcoin, RefreshCw, Loader2, Search } from 'lucide-react';
+import { Plus, Trash2, Bitcoin, RefreshCw, Loader2, Search, Pencil } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { CryptoHolding } from '@/types/finance';
@@ -34,6 +34,7 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
   const [searchResults, setSearchResults] = useState<CoinResult[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     symbol: '',
@@ -42,7 +43,34 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
     avgBuyPrice: 0,
     currentPrice: 0,
     coinId: '', // Hidden field to store CoinGecko ID if found
+    feeType: 'fixed' as 'fixed' | 'percent',
+    feeValue: 0
   });
+
+  const resetForm = () => {
+    setForm({ symbol: '', name: '', quantity: 0, avgBuyPrice: 0, currentPrice: 0, coinId: '', feeType: 'fixed', feeValue: 0 });
+    setEditId(null);
+  };
+
+  const handleEdit = (holding: CryptoHolding) => {
+    // Reverse calc to get Raw Price (Effective - Fees)
+    const totalCost = holding.avgBuyPrice * holding.quantity;
+    const rawCost = totalCost - (holding.fees || 0);
+    const rawAvgPrice = holding.quantity > 0 ? rawCost / holding.quantity : 0;
+
+    setForm({
+      symbol: holding.symbol,
+      name: holding.name,
+      quantity: holding.quantity,
+      avgBuyPrice: rawAvgPrice,
+      currentPrice: holding.currentPrice,
+      coinId: '',
+      feeType: 'fixed',
+      feeValue: holding.fees || 0
+    });
+    setEditId(holding.id);
+    setOpen(true);
+  };
 
   // Debounced search
   useEffect(() => {
@@ -95,20 +123,49 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
         }
       }
 
-      onAdd({
-        symbol: form.symbol,
-        name: form.name,
-        quantity: form.quantity,
-        avgBuyPrice: form.avgBuyPrice,
-        currentPrice: price,
-        currency: 'USD'
-      });
+      // Calculate Fees
+      let calculatedFees = 0;
+      if (form.feeType === 'fixed') {
+        calculatedFees = form.feeValue;
+      } else {
+        calculatedFees = (form.quantity * form.avgBuyPrice) * (form.feeValue / 100);
+      }
 
-      setForm({ symbol: '', name: '', quantity: 0, avgBuyPrice: 0, currentPrice: 0, coinId: '' });
+      // Effective Avg Buy Price (True Cost Basis per unit)
+      // Total Cost = (Qty * RawPrice) + Fees
+      // EffectivePrice = TotalCost / Qty
+      const trueCostBasis = (form.quantity * form.avgBuyPrice) + calculatedFees;
+      const effectiveAvgBuyPrice = trueCostBasis / form.quantity;
+
+      if (editId) {
+        onUpdate(editId, {
+          symbol: form.symbol,
+          name: form.name,
+          quantity: form.quantity,
+          avgBuyPrice: effectiveAvgBuyPrice,
+          currentPrice: price,
+          currency: 'USD',
+          fees: calculatedFees,
+          updatedAt: new Date().toISOString()
+        });
+        toast.success('Crypto holding updated');
+      } else {
+        onAdd({
+          symbol: form.symbol,
+          name: form.name,
+          quantity: form.quantity,
+          avgBuyPrice: effectiveAvgBuyPrice,
+          currentPrice: price,
+          currency: 'USD',
+          fees: calculatedFees
+        });
+        toast.success('Crypto holding added successfully');
+      }
+
+      resetForm();
       setOpen(false);
-      toast.success('Crypto holding added successfully');
     } catch (error) {
-      toast.error('Failed to add crypto holding');
+      toast.error(editId ? 'Failed to update crypto holding' : 'Failed to add crypto holding');
     } finally {
       setIsAdding(false);
     }
@@ -175,15 +232,14 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
               Update Prices
             </Button>
           )}
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gradient-primary">
-                <Plus className="h-4 w-4 mr-1" /> Add
-              </Button>
-            </DialogTrigger>
+          <Button size="sm" className="gradient-primary" onClick={() => { resetForm(); setOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Add
+          </Button>
+
+          <Dialog open={open} onOpenChange={(val) => { if (!val) resetForm(); setOpen(val); }}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Crypto Holding</DialogTitle>
+                <DialogTitle>{editId ? 'Edit Crypto Holding' : 'Add Crypto Holding'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -255,9 +311,52 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
                     />
                   </div>
                 </div>
+
+                {/* Trading Fees */}
+                <div className="space-y-2 border p-3 rounded-md bg-muted/20">
+                  <Label>Trading Fees</Label>
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      type="button"
+                      variant={form.feeType === 'fixed' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setForm({ ...form, feeType: 'fixed' })}
+                      className="flex-1"
+                    >
+                      Fixed Amount
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={form.feeType === 'percent' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setForm({ ...form, feeType: 'percent' })}
+                      className="flex-1"
+                    >
+                      Percentage %
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">{form.feeType === 'fixed' ? 'Amount' : 'Percentage'}</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={form.feeValue}
+                        onChange={(e) => setForm({ ...form, feeValue: +e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <Label className="text-xs text-muted-foreground">Calculated Fee</Label>
+                      <div className="font-mono font-medium text-lg">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(form.feeType === 'fixed' ? form.feeValue : (form.quantity * form.avgBuyPrice) * (form.feeValue / 100))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <Button type="submit" className="w-full gradient-primary" disabled={isAdding}>
                   {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Add Crypto
+                  {editId ? 'Save Changes' : 'Add Crypto'}
                 </Button>
               </form>
             </DialogContent>
@@ -308,9 +407,14 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
                       {formatCurrency(gain)} ({percent.toFixed(1)}%)
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => onDelete(h.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(h)}>
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => onDelete(h.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

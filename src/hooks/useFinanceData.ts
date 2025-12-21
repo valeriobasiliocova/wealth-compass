@@ -87,6 +87,8 @@ export function useFinanceData() {
           currency: a.trading_currency,
           sector: a.sector,
           geography: a.geography,
+          isin: a.isin,
+          fees: a.fees,
           createdAt: a.created_at,
           updatedAt: a.updated_at
         })),
@@ -98,6 +100,7 @@ export function useFinanceData() {
           avgBuyPrice: a.avg_buy_price,
           currentPrice: 0,
           currency: 'USD',
+          fees: a.fees,
           createdAt: a.created_at,
           updatedAt: a.updated_at
         })),
@@ -194,11 +197,27 @@ export function useFinanceData() {
       trading_currency: entry.currency || 'USD',
       sector: entry.sector,
       geography: entry.geography,
+      isin: entry.isin,
+      fees: entry.fees || 0,
       created_at: new Date().toISOString()
     };
 
     const { data: inserted, error } = await supabase.from('assets').insert([dbPayload]).select().single();
     if (error) { toast.error('Failed to save investment'); return; }
+
+    // Auto-log Fee Transaction
+    if (entry.fees && entry.fees > 0) {
+      await supabase.from('transactions').insert([{
+        user_id: user.id,
+        type: 'expense',
+        category: 'Trading Fees',
+        amount: entry.fees,
+        description: `Fee for buy order: ${entry.symbol}`,
+        date: new Date().toISOString().split('T')[0]
+      }]);
+      toast.info('Trading fee logged to Cash Flow');
+    }
+
     fetchData();
   }, [user, fetchData]);
 
@@ -231,11 +250,26 @@ export function useFinanceData() {
       quantity: entry.quantity,
       avg_buy_price: entry.avgBuyPrice,
       trading_currency: 'USD',
+      fees: entry.fees || 0,
       created_at: new Date().toISOString()
     };
     const { error } = await supabase.from('assets').insert([dbPayload]);
     if (error) toast.error('Failed to save crypto');
-    else fetchData();
+    else {
+      // Auto-log Fee Transaction
+      if (entry.fees && entry.fees > 0) {
+        await supabase.from('transactions').insert([{
+          user_id: user.id,
+          type: 'expense',
+          category: 'Trading Fees',
+          amount: entry.fees,
+          description: `Fee for buy order: ${entry.symbol}`,
+          date: new Date().toISOString().split('T')[0]
+        }]);
+        toast.info('Trading fee logged to Cash Flow');
+      }
+      fetchData();
+    }
   }, [user, fetchData]);
 
   const updateCrypto = useCallback(async (id: string, updates: Partial<CryptoHolding>) => {
@@ -342,7 +376,7 @@ export function useFinanceData() {
     // Legacy manual liquidity accounts
     // const manualLiquidity = data.liquidity.reduce((sum, a) => sum + convert(a.balance, a.currency), 0);
 
-    const totalInvestments = data.investments.reduce((sum, i) => sum + convert(i.currentValue, i.currency), 0);
+    const totalInvestments = data.investments.reduce((sum, i) => sum + convert(i.currentValue || i.costBasis, i.currency), 0);
     const totalCrypto = data.crypto.reduce((sum, c) => sum + convert(c.quantity * c.currentPrice, 'USD'), 0);
 
     const totalAssets = totalLiquidity + totalInvestments + totalCrypto; // + manualLiquidity? Omitted to follow strict instruction.
