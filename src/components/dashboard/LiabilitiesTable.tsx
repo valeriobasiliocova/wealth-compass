@@ -122,45 +122,47 @@ export function LiabilitiesTable({ liabilities, onAdd, onUpdate, onDelete }: Lia
         {liabilities.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No liabilities. Great job staying debt-free!</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Principal</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-                <TableHead className="text-right">Rate</TableHead>
-                <TableHead className="text-right">Monthly</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {liabilities.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-medium">{l.name}</TableCell>
-                  <TableCell className="capitalize">{l.type.replace('_', ' ')}</TableCell>
-                  <TableCell className={cn("text-right", blurClass)}>{formatCurrency(l.principal, l.currency)}</TableCell>
-                  <TableCell className={cn("text-right text-destructive", blurClass)}>
-                    <div className="flex flex-col items-end">
-                      <span>{formatCurrency(l.currentBalance, l.currency)}</span>
-                      {l.currency && l.currency !== baseCurrency && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: l.currency }).format(l.currentBalance)}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">{l.interestRate}%</TableCell>
-                  <TableCell className={cn("text-right", blurClass)}>{formatCurrency(l.monthlyPayment, l.currency)}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete(l.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Type</TableHead>
+                  <TableHead className="text-right">Principal</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Rate</TableHead>
+                  <TableHead className="text-right">Monthly</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {liabilities.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="font-medium">{l.name}</TableCell>
+                    <TableCell className="capitalize hidden sm:table-cell">{l.type.replace('_', ' ')}</TableCell>
+                    <TableCell className={cn("text-right", blurClass)}>{formatCurrency(l.principal, l.currency)}</TableCell>
+                    <TableCell className={cn("text-right text-destructive", blurClass)}>
+                      <div className="flex flex-col items-end">
+                        <span>{formatCurrency(l.currentBalance, l.currency)}</span>
+                        {l.currency && l.currency !== baseCurrency && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: l.currency }).format(l.currentBalance)}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right hidden sm:table-cell">{l.interestRate}%</TableCell>
+                    <TableCell className={cn("text-right", blurClass)}>{formatCurrency(l.monthlyPayment, l.currency)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => onDelete(l.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

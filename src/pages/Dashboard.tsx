@@ -12,7 +12,7 @@ import { LiquidityCards } from '@/components/dashboard/LiquidityCards';
 import { IncomeExpenseModule } from '@/components/dashboard/IncomeExpenseModule';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { CashFlowTrendChart, AssetAllocationChart } from '@/components/dashboard/DashboardCharts';
-import { getCryptoPrice, getStockPrice } from '@/lib/api';
+import { getCryptoPrice, getStockPrice, getBatchCryptoPrices } from '@/lib/api';
 import { toast } from 'sonner';
 import type { TimeRange } from '@/types/finance';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -38,36 +38,51 @@ const Dashboard = () => {
     let updatedCount = 0;
 
     try {
-      // 1. Update Crypto
-      const cryptoPromises = finance.data.crypto.map(async (h) => {
-        const price = await getCryptoPrice(h.symbol);
-        if (price !== null) {
+      // 1. Prepare Batches
+      const cryptoItems = finance.data.crypto.map(h => ({
+        symbol: h.symbol,
+        coinId: h.coinId || (h.name ? h.name.toLowerCase() : undefined)
+      }));
+
+      const stockItems = finance.data.investments.filter(inv => inv.type === 'stock' || inv.type === 'etf');
+
+      // 2. Execute Fetches Parallelly
+      const [cryptoPrices, stockResults] = await Promise.all([
+        getBatchCryptoPrices(cryptoItems),
+        Promise.all(stockItems.map(async (inv) => {
+          const price = await getStockPrice(inv.symbol);
+          return { id: inv.id, price };
+        }))
+      ]);
+
+      // 3. Process Updates (Atomic-like)
+
+      // Update Crypto
+      finance.data.crypto.forEach(h => {
+        const lookup = h.coinId || h.name.toLowerCase();
+        // Check if we have a price (getBatchCryptoPrices returns keyed by lookup ID)
+        if (lookup && cryptoPrices[lookup] !== undefined) {
           finance.updateCrypto(h.id, {
-            currentPrice: price,
+            currentPrice: cryptoPrices[lookup],
             updatedAt: new Date().toISOString()
           });
-          return true;
+          updatedCount++;
         }
-        return false;
       });
 
-      // 2. Update Stocks/ETFs
-      const stockPromises = finance.data.investments
-        .filter(inv => inv.type === 'stock' || inv.type === 'etf')
-        .map(async (inv) => {
-          const price = await getStockPrice(inv.symbol);
-          if (price !== null) {
-            finance.updateInvestment(inv.id, {
+      // Update Stocks
+      stockResults.forEach(({ id, price }) => {
+        if (price !== null) {
+          const inv = stockItems.find(i => i.id === id);
+          if (inv) {
+            finance.updateInvestment(id, {
               currentValue: price * inv.quantity,
               updatedAt: new Date().toISOString()
             });
-            return true;
+            updatedCount++;
           }
-          return false;
-        });
-
-      const results = await Promise.all([...cryptoPromises, ...stockPromises]);
-      updatedCount = results.filter(Boolean).length;
+        }
+      });
 
       setLastUpdated(new Date());
       if (updatedCount > 0) {

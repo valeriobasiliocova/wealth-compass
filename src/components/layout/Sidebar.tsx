@@ -45,7 +45,7 @@ export function Sidebar() {
     const { signOut } = useAuth();
 
     return (
-        <div className="h-screen w-64 bg-card border-r border-border flex flex-col hidden md:flex sticky top-0">
+        <div className="h-full w-full bg-card flex flex-col">
             <div className="p-6">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                     Wealth Compass

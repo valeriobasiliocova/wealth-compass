@@ -114,7 +114,8 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
         const fetched = await getStockPrice(form.symbol);
         if (fetched) {
           pricePerShare = fetched;
-          if (form.currency !== 'USD') toast.message('Price fetched in USD. Verify currency.');
+          // We trust the user's selected currency for the asset. 
+          // (e.g. VWCE.DE returns price in EUR, user selects EUR -> value is correct).
         } else {
           toast.warning('Live price unavailable. Enabling manual entry.');
           setManualPriceEnabled(true);
@@ -229,7 +230,7 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                 <Plus className="h-4 w-4 mr-1" /> Add
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add Investment</DialogTitle>
                 <DialogDescription>Fill in the details below to track your asset.</DialogDescription>
@@ -437,69 +438,73 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
         {investments.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No investments yet.</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Symbol</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Sector</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right flex items-center justify-end gap-1">
-                  Value
-                  <HelpTooltip content="Current market value of this investment." side="left" />
-                </TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {investments.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell className="font-mono font-medium">{inv.symbol}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span>{inv.name}</span>
-                      {inv.isin && <span className="text-[10px] text-muted-foreground">{inv.isin}</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="capitalize">{inv.type.replace('_', ' ')}</TableCell>
-                  <TableCell>{inv.sector}</TableCell>
-                  <TableCell className="text-right">{inv.quantity}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex flex-col items-end">
-                      {/* Main Value in Base Currency */}
-                      <span className={cn("font-medium", blurClass)}>
-                        {formatCurrency(inv.currentValue, inv.currency)}
-                      </span>
-
-                      {/* Secondary Value in Original Currency (if different) */}
-                      {inv.currency && inv.currency !== baseCurrency && (
-                        <span className={cn("text-xs text-muted-foreground", blurClass)}>
-                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: inv.currency }).format(inv.currentValue)}
-                        </span>
-                      )}
-
-                      {inv.updatedAt && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(inv.updatedAt), { addSuffix: true })}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)}>
-                        <Pencil className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => onDelete(inv.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Type</TableHead>
+                  <TableHead className="hidden md:table-cell">Sector</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead className="text-right flex items-center justify-end gap-1">
+                    Value
+                    <HelpTooltip content="Current market value of this investment." side="left" />
+                  </TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {investments.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-mono font-medium">{inv.symbol}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>{inv.name}</span>
+                        {inv.isin && <span className="text-[10px] text-muted-foreground">{inv.isin}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize hidden sm:table-cell">{inv.type.replace('_', ' ')}</TableCell>
+                    <TableCell className="hidden md:table-cell">{inv.sector}</TableCell>
+                    <TableCell className="text-right">{inv.quantity}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end">
+                        {/* Main Value in Base Currency */}
+                        {/* Logic: IF (asset.currency === base_currency) THEN Direct math (No Conversion). ELSE -> Convert. */}
+                        {/* formatCurrency handles this check internally. */}
+                        <span className={cn("font-medium", blurClass)}>
+                          {formatCurrency(inv.currentValue, inv.currency)}
+                        </span>
+
+                        {/* Secondary Value in Original Currency (if different) */}
+                        {inv.currency && inv.currency !== baseCurrency && (
+                          <span className={cn("text-xs text-muted-foreground", blurClass)}>
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: inv.currency }).format(inv.currentValue)}
+                          </span>
+                        )}
+
+                        {inv.updatedAt && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatDistanceToNow(new Date(inv.updatedAt), { addSuffix: true })}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(inv)}>
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => onDelete(inv.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -10,7 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { CryptoHolding } from '@/types/finance';
 import { cn } from '@/lib/utils';
-import { getCryptoPrice, searchCoinGecko, fetchAllCryptoPrices, type CoinResult } from '@/lib/api';
+import { getCryptoPrice, searchCoinGecko, getBatchCryptoPrices, type CoinResult } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -178,32 +178,42 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
     try {
       // Collect IDs (prefer coinId, fallback to name/symbol if missing)
       // Note: name/symbol fallback is imperfect but helpful for legacy data
-      const idMap: Record<string, string> = {};
-      const idsToFetch = holdings.map(h => {
-        const id = h.coinId || h.name.toLowerCase(); // simplified fallback
-        idMap[id] = h.id;
-        return id;
-      });
+      // For getBatchCryptoPrices, we need objects { symbol, coinId }
+      const itemsToFetch = holdings.map(h => ({
+        symbol: h.symbol,
+        coinId: h.coinId || (h.name ? h.name.toLowerCase() : undefined) // fallback logic moved here or kept simple
+      }));
 
-      if (idsToFetch.length === 0) return;
+      if (itemsToFetch.length === 0) return;
 
-      const prices = await fetchAllCryptoPrices(idsToFetch, force);
+      const prices = await getBatchCryptoPrices(itemsToFetch, force);
 
       // Update Holdings
       let updatedCount = 0;
-      Object.entries(prices).forEach(([coinId, price]) => {
-        // Find holding(s) that match this coinId
-        // We might have multiple holdings for same coin?
-        holdings.forEach(h => {
-          const hId = h.coinId || h.name.toLowerCase();
-          if (hId === coinId) {
-            onUpdate(h.id, {
-              currentPrice: price,
-              updatedAt: new Date().toISOString()
-            });
-            updatedCount++;
-          }
-        });
+      // We need to map prices back to holdings.
+      // The prices object uses keys that are IDs.
+      // We need to know which holding corresponds to which ID.
+      // We can iterate holdings and check if their ID (or fallback) has a price.
+
+      holdings.forEach(h => {
+        // Resolve the ID used for this holding
+        const lookupId = h.coinId || h.name.toLowerCase();
+        // Check if we have a price for this ID
+        // Note: the batch function returns prices keyed by the ID used (coinId or symbol fallback)
+        // Actually getBatchCryptoPrices returns prices keyed by the ID found/used. 
+        // If we passed coinId, it used coinId. If we passed symbol fallback, it used likely that.
+        // Let's check both or strict?
+        // In getBatchCryptoPrices implementation: 
+        // items.forEach(item => { if (item.coinId) ... else ... })
+        // It returns Record<string, number>. Keys are the IDs.
+
+        if (lookupId && prices[lookupId] !== undefined) {
+          onUpdate(h.id, {
+            currentPrice: prices[lookupId],
+            updatedAt: new Date().toISOString()
+          });
+          updatedCount++;
+        }
       });
 
       if (force) {
@@ -394,60 +404,62 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
         {holdings.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No crypto holdings yet. Add your first one!</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Symbol</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Avg Buy</TableHead>
-                <TableHead className="text-right">Current</TableHead>
-                <TableHead className="text-right">Value</TableHead>
-                <TableHead className="text-right flex items-center justify-end gap-1">
-                  Gain/Loss
-                  <HelpTooltip content="The theoretical profit or loss you would make if you sold your investments right now at the current market price (Unrealized P&L)." side="left" />
-                </TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {holdings.map((h) => {
-                const { currentValue, gain, percent } = getGainLoss(h);
-                return (
-                  <TableRow key={h.id}>
-                    <TableCell className="font-mono font-medium">{h.symbol}</TableCell>
-                    <TableCell>{h.name}</TableCell>
-                    <TableCell className="text-right font-mono">{h.quantity}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(h.avgBuyPrice)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-col items-end">
-                        <span className={blurClass}>{formatCurrency(h.currentPrice)}</span>
-                        {h.updatedAt && (
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatDistanceToNow(new Date(h.updatedAt), { addSuffix: true })}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className={cn("text-right", blurClass)}>{formatCurrency(currentValue)}</TableCell>
-                    <TableCell className={cn('text-right font-medium', blurClass, gain >= 0 ? 'text-success' : 'text-destructive')}>
-                      {formatCurrency(gain)} ({percent.toFixed(1)}%)
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(h)}>
-                          <Pencil className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onDelete(h.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Avg Buy</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Current</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                  <TableHead className="text-right flex items-center justify-end gap-1">
+                    Gain/Loss
+                    <HelpTooltip content="The theoretical profit or loss you would make if you sold your investments right now at the current market price (Unrealized P&L)." side="left" />
+                  </TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {holdings.map((h) => {
+                  const { currentValue, gain, percent } = getGainLoss(h);
+                  return (
+                    <TableRow key={h.id}>
+                      <TableCell className="font-mono font-medium">{h.symbol}</TableCell>
+                      <TableCell>{h.name}</TableCell>
+                      <TableCell className="text-right font-mono">{h.quantity}</TableCell>
+                      <TableCell className="text-right hidden sm:table-cell">{formatCurrency(h.avgBuyPrice)}</TableCell>
+                      <TableCell className="text-right hidden sm:table-cell">
+                        <div className="flex flex-col items-end">
+                          <span className={blurClass}>{formatCurrency(h.currentPrice)}</span>
+                          {h.updatedAt && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(h.updatedAt), { addSuffix: true })}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className={cn("text-right", blurClass)}>{formatCurrency(currentValue)}</TableCell>
+                      <TableCell className={cn('text-right font-medium', blurClass, gain >= 0 ? 'text-success' : 'text-destructive')}>
+                        {formatCurrency(gain)} ({percent.toFixed(1)}%)
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(h)}>
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => onDelete(h.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

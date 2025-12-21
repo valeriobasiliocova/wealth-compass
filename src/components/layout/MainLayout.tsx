@@ -8,24 +8,28 @@ export default function MainLayout() {
     return (
         <div className="flex min-h-screen bg-background text-foreground font-sans antialiased">
             {/* Desktop Sidebar */}
-            <Sidebar />
+            <div className="hidden md:flex w-64 flex-col sticky top-0 h-screen border-r border-border">
+                <Sidebar />
+            </div>
 
-            {/* Mobile Sidebar (Sheet) */}
-            <div className="md:hidden fixed z-50 bottom-4 right-4">
+            {/* Mobile Header (Hamburger) */}
+            <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border p-4 flex items-center justify-between">
                 <Sheet>
                     <SheetTrigger asChild>
-                        <Button size="icon" className="rounded-full shadow-lg h-12 w-12 gradient-primary">
+                        <Button variant="ghost" size="icon">
                             <Menu className="h-6 w-6" />
                         </Button>
                     </SheetTrigger>
-                    <SheetContent side="left" className="p-0 border-r w-64">
+                    <SheetContent side="left" className="p-0 border-r w-64 bg-card">
                         <Sidebar />
                     </SheetContent>
                 </Sheet>
+                <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Wealth Compass</span>
+                <div className="w-8"></div> {/* Spacer for alignment */}
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-x-hidden">
+            <main className="flex-1 overflow-x-hidden pt-16 md:pt-0">
                 <Outlet />
             </main>
         </div>
