@@ -39,21 +39,19 @@ export async function searchCoinGecko(query: string): Promise<CoinResult[]> {
     }
 }
 
-// Fetch crypto price from CoinGecko (using ID is more reliable than symbol)
+const STORAGE_KEY_CRYPTO_CACHE = 'wealth_compass_crypto_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+interface CachedCryptoData {
+    timestamp: number;
+    prices: Record<string, number>;
+}
+
+// Fetch crypto price from CoinGecko (individual) - kept for legacy or single add
 export async function getCryptoPrice(idOrSymbol: string): Promise<number | null> {
     try {
-        // If it looks like a symbol (3-4 chars), try to search first to get ID, 
-        // but the UI should ideally pass the ID. 
-        // We'll assume the input is the ID (e.g. 'bitcoin') for best results, 
-        // but fall back to search if needed.
-
         let coinId = idOrSymbol.toLowerCase();
-
-        // Simple check: if it's short, it might be a symbol, but CoinGecko IDs can also be short (e.g. '0x').
-        // Best practice: The UI should store and pass the CoinGecko ID.
-        // If we only have a symbol (legacy data), we try to find the ID.
         if (coinId.length <= 5) {
-            // Try to find specific ID for symbol
             const results = await searchCoinGecko(coinId);
             const match = results.find(c => c.symbol.toLowerCase() === coinId);
             if (match) coinId = match.id;
@@ -67,6 +65,64 @@ export async function getCryptoPrice(idOrSymbol: string): Promise<number | null>
     } catch (error) {
         console.error(`Error fetching crypto price for ${idOrSymbol}:`, error);
         return null;
+    }
+}
+
+// Batch Fetch with Caching
+export async function fetchAllCryptoPrices(coinIds: string[], forceRefresh = false): Promise<Record<string, number>> {
+    const now = Date.now();
+    const uniqueIds = Array.from(new Set(coinIds.map(id => id.toLowerCase()))).filter(id => id);
+    if (uniqueIds.length === 0) return {};
+
+    // 1. Check Cache
+    if (!forceRefresh) {
+        const cachedRaw = localStorage.getItem(STORAGE_KEY_CRYPTO_CACHE);
+        if (cachedRaw) {
+            try {
+                const cached: CachedCryptoData = JSON.parse(cachedRaw);
+                if (now - cached.timestamp < CACHE_DURATION) {
+                    console.log('Using cached crypto prices');
+                    return cached.prices;
+                }
+            } catch (e) {
+                console.error('Cache parse error, ignoring');
+            }
+        }
+    }
+
+    // 2. Fetch from API
+    try {
+        const idsParam = uniqueIds.join(',');
+        const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${idsParam}&vs_currencies=usd`);
+
+        if (res.status === 429) {
+            throw new Error('Rate limit reached (429). Please wait.');
+        }
+        if (!res.ok) throw new Error(`CoinGecko Batch Error: ${res.statusText}`);
+
+        const data = await res.json();
+        const prices: Record<string, number> = {};
+
+        // Map back to simple Key-Value
+        uniqueIds.forEach(id => {
+            if (data[id]?.usd) {
+                prices[id] = data[id].usd;
+            }
+        });
+
+        // 3. Update Cache
+        const newCache: CachedCryptoData = { timestamp: now, prices: { ...prices } }; // Assuming partial update? No, simple replacement for now.
+        // Ideally we merge with existing valid cache if we only fetched a subset?
+        // But here we usually fetch ALL.
+        localStorage.setItem(STORAGE_KEY_CRYPTO_CACHE, JSON.stringify(newCache));
+
+        return prices;
+    } catch (error: any) {
+        console.error('Batch crypto fetch error:', error);
+        // Fallback to cache if available even if expired?
+        // Better to return empty or let UI handle it. 
+        // We throw so UI can show the Toast.
+        throw error;
     }
 }
 

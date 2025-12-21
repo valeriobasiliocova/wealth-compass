@@ -464,7 +464,7 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                   </TableCell>
                   <TableCell className="capitalize">{inv.type.replace('_', ' ')}</TableCell>
                   <TableCell>{inv.sector}</TableCell>
-                  <TableCell className="text-right">{inv.quantity.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{inv.quantity}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
                       {/* Main Value in Base Currency */}

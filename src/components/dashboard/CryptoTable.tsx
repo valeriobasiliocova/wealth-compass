@@ -10,7 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { CryptoHolding } from '@/types/finance';
 import { cn } from '@/lib/utils';
-import { getCryptoPrice, searchCoinGecko, type CoinResult } from '@/lib/api';
+import { getCryptoPrice, searchCoinGecko, fetchAllCryptoPrices, type CoinResult } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -64,7 +64,7 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
       quantity: holding.quantity,
       avgBuyPrice: rawAvgPrice,
       currentPrice: holding.currentPrice,
-      coinId: '',
+      coinId: holding.coinId || '',
       feeType: 'fixed',
       feeValue: holding.fees || 0
     });
@@ -146,6 +146,7 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
           currentPrice: price,
           currency: 'USD',
           fees: calculatedFees,
+          coinId: form.coinId,
           updatedAt: new Date().toISOString()
         });
         toast.success('Crypto holding updated');
@@ -157,7 +158,8 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
           avgBuyPrice: effectiveAvgBuyPrice,
           currentPrice: price,
           currency: 'USD',
-          fees: calculatedFees
+          fees: calculatedFees,
+          coinId: form.coinId
         });
         toast.success('Crypto holding added successfully');
       }
@@ -171,33 +173,58 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
     }
   };
 
-  const handleUpdateAll = async () => {
+  const refreshPrices = async (force: boolean = false) => {
     setIsUpdating(true);
-    let updatedCount = 0;
-
     try {
-      await Promise.all(holdings.map(async (h) => {
-        const price = await getCryptoPrice(h.symbol);
-        if (price) {
-          onUpdate(h.id, {
-            currentPrice: price,
-            updatedAt: new Date().toISOString()
-          });
-          updatedCount++;
-        }
-      }));
+      // Collect IDs (prefer coinId, fallback to name/symbol if missing)
+      // Note: name/symbol fallback is imperfect but helpful for legacy data
+      const idMap: Record<string, string> = {};
+      const idsToFetch = holdings.map(h => {
+        const id = h.coinId || h.name.toLowerCase(); // simplified fallback
+        idMap[id] = h.id;
+        return id;
+      });
 
-      if (updatedCount > 0) {
-        toast.success(`Updated prices for ${updatedCount} assets`);
-      } else {
-        toast.info('No prices could be updated');
+      if (idsToFetch.length === 0) return;
+
+      const prices = await fetchAllCryptoPrices(idsToFetch, force);
+
+      // Update Holdings
+      let updatedCount = 0;
+      Object.entries(prices).forEach(([coinId, price]) => {
+        // Find holding(s) that match this coinId
+        // We might have multiple holdings for same coin?
+        holdings.forEach(h => {
+          const hId = h.coinId || h.name.toLowerCase();
+          if (hId === coinId) {
+            onUpdate(h.id, {
+              currentPrice: price,
+              updatedAt: new Date().toISOString()
+            });
+            updatedCount++;
+          }
+        });
+      });
+
+      if (force) {
+        if (updatedCount > 0) toast.success(`Updated prices for ${updatedCount} assets`);
+        else toast.info('No prices needed update');
       }
     } catch (error) {
-      toast.error('Failed to update prices');
+      toast.error('Failed to update prices. Rate limit or API error.');
     } finally {
       setIsUpdating(false);
     }
   };
+
+  const handleUpdateAll = () => refreshPrices(true);
+
+  // Auto-refresh on mount (cached)
+  useEffect(() => {
+    if (holdings.length > 0) {
+      refreshPrices(false);
+    }
+  }, []);
 
   const getGainLoss = (h: CryptoHolding) => {
     const costBasis = h.quantity * h.avgBuyPrice;
@@ -390,7 +417,7 @@ export function CryptoTable({ holdings, onAdd, onUpdate, onDelete }: CryptoTable
                   <TableRow key={h.id}>
                     <TableCell className="font-mono font-medium">{h.symbol}</TableCell>
                     <TableCell>{h.name}</TableCell>
-                    <TableCell className="text-right">{h.quantity.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-mono">{h.quantity}</TableCell>
                     <TableCell className="text-right">{formatCurrency(h.avgBuyPrice)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col items-end">

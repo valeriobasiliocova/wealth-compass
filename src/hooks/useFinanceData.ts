@@ -101,6 +101,7 @@ export function useFinanceData() {
           currentPrice: 0,
           currency: 'USD',
           fees: a.fees,
+          coinId: a.coin_id,
           createdAt: a.created_at,
           updatedAt: a.updated_at
         })),
@@ -251,6 +252,7 @@ export function useFinanceData() {
       avg_buy_price: entry.avgBuyPrice,
       trading_currency: 'USD',
       fees: entry.fees || 0,
+      coin_id: entry.coinId,
       created_at: new Date().toISOString()
     };
     const { error } = await supabase.from('assets').insert([dbPayload]);

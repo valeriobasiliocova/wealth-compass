@@ -44,6 +44,7 @@ export interface CryptoHolding {
   currentPrice: number;
   currency?: string;
   fees?: number;
+  coinId?: string;
   updatedAt: string;
   createdAt: string;
 }
