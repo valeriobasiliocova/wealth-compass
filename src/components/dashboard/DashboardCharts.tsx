@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 // --- Cash Flow Trend (Bar) ---
 export function CashFlowTrendChart() {
     const { getCashFlowTrend } = useChartData();
-    const { formatCurrency, isPrivacyMode } = useSettings();
+    const { formatCurrency, isPrivacyMode, currencySymbol } = useSettings();
     const data = getCashFlowTrend(6); // Last 6 months
 
     return (
@@ -37,7 +37,7 @@ export function CashFlowTrendChart() {
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(val) => `€${val / 1000}k`}
+                            tickFormatter={(val) => `${currencySymbol}${val / 1000}k`}
                         />
                         <Tooltip
                             cursor={{ fill: 'rgba(255,255,255,0.05)' }}

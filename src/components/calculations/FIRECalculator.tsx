@@ -10,7 +10,7 @@ import { Flame, TrendingUp, Target, DollarSign, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function FIRECalculator() {
-    const { formatCurrency } = useSettings();
+    const { formatCurrency, currencySymbol } = useSettings();
 
     // Inputs
     const [currentAge, setCurrentAge] = useState<number>(() => {
@@ -267,7 +267,7 @@ export default function FIRECalculator() {
                                     stroke="#9ca3af"
                                     tickLine={false}
                                     axisLine={false}
-                                    tickFormatter={(value) => `$${value / 1000}k`}
+                                    tickFormatter={(value) => `${currencySymbol}${value / 1000}k`}
                                 />
                                 <Tooltip
                                     contentStyle={{ backgroundColor: 'rgba(23, 23, 23, 0.9)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}

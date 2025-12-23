@@ -10,6 +10,7 @@ interface SettingsContextType {
     setCurrency: (c: Currency) => void;
     currencyRates: Record<string, number> | null;
     refreshRates: () => Promise<void>;
+    currencySymbol: string;
     isPrivacyMode: boolean;
     togglePrivacyMode: () => void;
     finnhubKey: string;
@@ -130,6 +131,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }).format(converted);
     };
 
+    const currencySymbol = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency
+    }).formatToParts(0).find(part => part.type === 'currency')?.value || '$';
+
     return (
         <SettingsContext.Provider
             value={{
@@ -137,6 +143,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 setCurrency,
                 currencyRates,
                 refreshRates,
+                currencySymbol,
                 isPrivacyMode,
                 togglePrivacyMode,
                 finnhubKey,
