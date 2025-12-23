@@ -15,6 +15,7 @@ import MainLayout from "./components/layout/MainLayout";
 import CashFlowPage from "./pages/CashFlow";
 import InvestmentsPage from "./pages/Investments";
 import CryptoPage from "./pages/Crypto";
+import CalculationsPage from "./pages/Calculations";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
                   <Route path="/cash-flow" element={<CashFlowPage />} />
                   <Route path="/investments" element={<InvestmentsPage />} />
                   <Route path="/crypto" element={<CryptoPage />} />
+                  <Route path="/calculations" element={<CalculationsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />

@@ -7,7 +7,8 @@ import {
     Bitcoin,
     Settings,
     LogOut,
-    Shield
+    Shield,
+    Calculator
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,6 +41,11 @@ const sidebarItems = [
         title: "Settings",
         icon: Settings,
         href: "/settings",
+    },
+    {
+        title: "Calculations",
+        icon: Calculator,
+        href: "/calculations",
     },
 ];
 
