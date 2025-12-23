@@ -1,8 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, TrendingUp } from "lucide-react";
+import { Calculator, TrendingUp, TrendingDown, Flame } from "lucide-react";
 import { CompoundInterestCalculator } from "@/components/calculations/CompoundInterestCalculator";
 import { MonteCarloSimulation } from "@/components/calculations/MonteCarloSimulation";
+import InflationCalculator from "@/components/calculations/InflationCalculator";
+import FIRECalculator from "@/components/calculations/FIRECalculator";
 
 const CalculationsPage = () => {
     return (
@@ -17,7 +19,7 @@ const CalculationsPage = () => {
             </div>
 
             <Tabs defaultValue="compound" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+                <TabsList className="grid w-full grid-cols-4 lg:w-[800px]">
                     <TabsTrigger value="compound" className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4" />
                         Compound Interest
@@ -25,6 +27,14 @@ const CalculationsPage = () => {
                     <TabsTrigger value="montecarlo" className="flex items-center gap-2">
                         <Calculator className="h-4 w-4" />
                         Monte Carlo
+                    </TabsTrigger>
+                    <TabsTrigger value="inflation" className="flex items-center gap-2">
+                        <TrendingDown className="h-4 w-4" />
+                        Inflation
+                    </TabsTrigger>
+                    <TabsTrigger value="fire" className="flex items-center gap-2">
+                        <Flame className="h-4 w-4" />
+                        FIRE
                     </TabsTrigger>
                 </TabsList>
 
@@ -34,6 +44,14 @@ const CalculationsPage = () => {
 
                 <TabsContent value="montecarlo" className="mt-6">
                     <MonteCarloSimulation />
+                </TabsContent>
+
+                <TabsContent value="inflation" className="mt-6">
+                    <InflationCalculator />
+                </TabsContent>
+
+                <TabsContent value="fire" className="mt-6">
+                    <FIRECalculator />
                 </TabsContent>
             </Tabs>
         </div>
