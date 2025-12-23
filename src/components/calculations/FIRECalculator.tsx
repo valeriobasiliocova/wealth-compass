@@ -271,7 +271,7 @@ export default function FIRECalculator() {
                                 />
                                 <Tooltip
                                     contentStyle={{ backgroundColor: 'rgba(23, 23, 23, 0.9)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
-                                    formatter={(value: number) => [formatCurrency(value), '']}
+                                    formatter={(value: number, name: string) => [formatCurrency(value), name]}
                                     labelFormatter={(age) => `Age ${age}`}
                                 />
                                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
@@ -279,6 +279,11 @@ export default function FIRECalculator() {
                                 {reachFireAge && (
                                     <ReferenceLine x={reachFireAge} stroke="#22c55e" strokeDasharray="3 3" label={{ position: 'top', value: `FIRE Age: ${reachFireAge}`, fill: '#22c55e', fontSize: 12, dy: -10 }} />
                                 )}
+
+                                {/* Labels for the lines (using invisible ReferenceLines) */}
+                                <ReferenceLine y={fireNumber} stroke="none" label={{ position: 'insideRight', value: 'FIRE', fill: '#f97316', fontSize: 12, dy: -12, fontWeight: 'bold' }} />
+                                <ReferenceLine y={fatFireNumber} stroke="none" label={{ position: 'insideRight', value: 'Fat FIRE', fill: '#a855f7', fontSize: 12, dy: -12, fontWeight: 'bold' }} />
+                                <ReferenceLine y={leanFireNumber} stroke="none" label={{ position: 'insideRight', value: 'Lean FIRE', fill: '#ef4444', fontSize: 12, dy: -12, fontWeight: 'bold' }} />
 
                                 <Line
                                     type="monotone"
