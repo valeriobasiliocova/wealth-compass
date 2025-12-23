@@ -10,7 +10,8 @@ import {
     Bar,
     XAxis,
     YAxis,
-    CartesianGrid
+    CartesianGrid,
+    ReferenceLine
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFinance } from '@/contexts/FinanceContext';
@@ -106,13 +107,20 @@ export function CryptoPerformanceChart() {
 
     const chartData = useMemo(() => {
         return data.crypto
-            .map((c) => ({
-                name: c.symbol,
-                Invested: c.quantity * c.avgBuyPrice,
-                Current: c.quantity * c.currentPrice,
-            }))
-            .filter(item => item.Current > 0 || item.Invested > 0)
-            .sort((a, b) => b.Current - a.Current); // Sort by current value
+            .map((c) => {
+                const invested = c.quantity * c.avgBuyPrice;
+                const current = c.quantity * c.currentPrice;
+                const netProfit = current - invested;
+
+                return {
+                    name: c.symbol,
+                    invested,
+                    current,
+                    netProfit,
+                };
+            })
+            .filter(item => item.current > 0 || item.invested > 0)
+            .sort((a, b) => b.netProfit - a.netProfit); // Sort by highest profit
     }, [data.crypto]);
 
     return (
@@ -120,7 +128,7 @@ export function CryptoPerformanceChart() {
             <CardHeader>
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                     <BarChartIcon className="h-5 w-5 text-success" />
-                    Performance (Invested vs Current)
+                    Net Profit / Loss
                 </CardTitle>
             </CardHeader>
             <CardContent className={cn("h-[300px]", isPrivacyMode && "blur-sm select-none pointer-events-none")}>
@@ -132,22 +140,37 @@ export function CryptoPerformanceChart() {
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} barGap={0}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
+                            <ReferenceLine y={0} stroke="#4b5563" />
                             <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                             <YAxis
                                 hide={isPrivacyMode}
                                 fontSize={12}
                                 tickLine={false}
                                 axisLine={false}
-                                tickFormatter={(val) => `${currencySymbol}${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
+                                tickFormatter={(val) => `${currencySymbol}${Math.abs(val) >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
                             />
                             <Tooltip
                                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
-                                formatter={(value: number) => isPrivacyMode ? "****" : formatCurrency(value)}
+                                formatter={(value: number, name: string) => {
+                                    if (isPrivacyMode) return "****";
+                                    if (name === 'Net P/L') {
+                                        return [
+                                            <span className={value >= 0 ? "text-success" : "text-destructive"}>
+                                                {value >= 0 ? '+' : ''}{formatCurrency(value)}
+                                            </span>,
+                                            "Net P/L"
+                                        ];
+                                    }
+                                    return formatCurrency(value);
+                                }}
                             />
-                            <Legend />
-                            <Bar dataKey="Invested" fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                            <Bar dataKey="Current" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                            {/* Single Bar with Conditional Formatting */}
+                            <Bar dataKey="netProfit" name="Net P/L" radius={[4, 4, 4, 4]} maxBarSize={50}>
+                                {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.netProfit >= 0 ? '#10b981' : '#ef4444'} />
+                                ))}
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 )}
