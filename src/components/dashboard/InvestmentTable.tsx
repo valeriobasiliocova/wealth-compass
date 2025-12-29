@@ -364,7 +364,9 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                   </div>
                   <div className="grid grid-cols-2 gap-4 items-center">
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">{form.feeType === 'fixed' ? 'Amount' : 'Percentage'}</Label>
+                      <Label className="text-xs text-muted-foreground">
+                        {form.feeType === 'fixed' ? `Amount (${form.currency})` : 'Percentage (%)'}
+                      </Label>
                       <Input
                         type="number"
                         step="any"
@@ -393,14 +395,14 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-1">
-                      Average Buy Price
-                      <HelpTooltip content="The average price you paid per single share or token." />
+                      Average Buy Price ({form.currency})
+                      <HelpTooltip content={`The average price paid per share in ${form.currency}. If you paid in another currency, convert it first.`} />
                     </Label>
                     <Input
                       type="number" step="any"
                       value={form.avgBuyPrice}
                       onChange={(e) => setForm({ ...form, avgBuyPrice: +e.target.value })}
-                      placeholder="Price per share"
+                      placeholder={`Price in ${form.currency}`}
                       required
                     />
                   </div>
@@ -429,7 +431,7 @@ export function InvestmentTable({ investments, onAdd, onUpdate, onDelete }: Inve
                     <Input
                       type="number"
                       step="any"
-                      placeholder="Current Market Price per Share"
+                      placeholder={`Current Price per Share (${form.currency})`}
                       value={form.currentPrice}
                       onChange={(e) => setForm({ ...form, currentPrice: +e.target.value })}
                     />
