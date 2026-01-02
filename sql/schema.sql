@@ -6,7 +6,7 @@ create extension if not exists "uuid-ossp";
 create or replace function public.check_email_whitelist()
 returns trigger as $$
 begin
-  if new.email != 'mattioli.simone.10@gmail.com' then
+  if new.email != 'valeriocovabasilio@gmail.com' then
     raise exception 'Access Denied: This is a private application. Your email is not authorized.';
   end if;
   return new;

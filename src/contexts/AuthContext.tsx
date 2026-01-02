@@ -27,16 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Listen for changes on auth state (sing in, sign out, etc.)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (session?.user && session.user.email !== 'mattioli.simone.10@gmail.com') {
-                await supabase.auth.signOut();
-                setSession(null);
-                setUser(null);
-                // We could use a toast here but this runs outside component render cycle often
-                console.warn('Access Restricted: Unauthorized Email');
-            } else {
-                setSession(session);
-                setUser(session?.user ?? null);
-            }
+            setSession(session);
+            setUser(session?.user ?? null);
             setLoading(false);
         });
 
@@ -44,10 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signInWithEmail = async (email: string, password: string) => {
-        if (email !== 'mattioli.simone.10@gmail.com') {
-            return { error: { message: 'Unauthorized access. This account is not allowed.' } };
-        }
-
+        // Removed hardcoded whitelist check to allow flexible usage
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
