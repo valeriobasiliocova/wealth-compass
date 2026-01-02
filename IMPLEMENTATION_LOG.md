@@ -20,6 +20,7 @@ The application is a modern web application built with **React**, **Vite**, **Ty
 -   **Pages**: `Dashboard`, `Index`, `NotFound`
 -   **Components**: Organized into `ui` (generic) and `dashboard` (feature-specific).
 -   **Routing**: React Router DOM
+-   **Authentication**: Supabase Auth
 
 ## Log
 
